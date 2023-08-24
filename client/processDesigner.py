@@ -1,35 +1,41 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, font
 import threading
 
 class ProcessViewer(tk.Toplevel):
     def __init__(self):
         super().__init__()
         self.title("Process Viewer")
-        self.geometry("800x300")
+        self.geometry("365x250")
         
         self.configure(bg="white")
         
         self.header_frame = ttk.Frame(self)
-        self.header_frame.pack(pady=10)
-        
-        self.button1 = ttk.Button(self.header_frame, text="Kill", command=self.button1_Click)
-        self.button1.grid(row=0, column=0, padx=10)
-        
-        self.button2 = ttk.Button(self.header_frame, text="Xem", command=self.button2_Click)
-        self.button2.grid(row=0, column=1, padx=10)
-        
-        self.button3 = ttk.Button(self.header_frame, text="Start", command=self.button3_Click)
-        self.button3.grid(row=0, column=2, padx=10)
-        
-        self.button4 = ttk.Button(self.header_frame, text="Xóa", command=self.button4_Click)
-        self.button4.grid(row=0, column=3, padx=10)
-        
+        self.header_frame.pack(pady=2)
+
+        self.button1 = ttk.Button(self, text="Kill", command=self.button1_Click)
+        self.button1.place(x=24, y=12, width=76, height=47)
+
+        self.button2 = ttk.Button(self, text="Xem", command=self.button2_Click)
+        self.button2.place(x=106, y=12, width=69, height=47)
+
+        self.button3 = ttk.Button(self, text="Start", command=self.button3_Click)
+        self.button3.place(x=261, y=12, width=69, height=47)
+
         self.listView1 = ttk.Treeview(self, columns=("Name Process", "ID Process", "Count Thread"), show="headings")
-        self.listView1.heading("Name Process", text="Tên Process", command=lambda: self.sort_name("Name Process"))
-        self.listView1.heading("ID Process", text="ID Process")
-        self.listView1.heading("Count Thread", text="Số luồng")
-        self.listView1.pack(padx=10, pady=10, fill="both", expand=True)
+        columns = [("Name Process", "Tên Process"), ("ID Process", "ID Process"), ("Count Thread", "Số luồng")]
+        for col_name, col_text in columns:
+            self.listView1.heading(col_name, text=col_text)
+            self.listView1.column(col_name, width=font.Font().measure(col_text))  # Thu gọn cột theo độ dài của văn bản
+            if col_name != "Name Process":
+                self.listView1.column(col_name, anchor="center")
+        self.listView1.place(x=24, y=74, width=320, height=162)
+
+        self.button4 = ttk.Button(self, text="Xóa", command=self.button4_Click)
+        self.button4.place(x=181, y=12, width=74, height=47)
+
+        self.protocol("WM_DELETE_WINDOW", self.process_closing)
+
 
         # Create a vertical scrollbar within the Treeview
         self.scrollbar = ttk.Scrollbar(self.listView1, orient="vertical", command=self.listView1.yview)

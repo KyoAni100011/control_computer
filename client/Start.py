@@ -11,8 +11,6 @@ class StartFunc(Start):
         self.ns = ns
 
     def start_closing(self):
-        self.nw.write("QUIT\n")
-        self.nw.flush()
         self.destroy()
 
     def butStart_Click(self):

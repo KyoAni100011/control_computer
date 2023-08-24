@@ -7,8 +7,6 @@ from Start import StartFunc
 class ListProcess(ProcessViewer):
     def __init__(self, nw, nr, ns):
         super().__init__()
-        self.title("List App")
-        self.geometry("800x600")
 
         self.nw = nw
         self.nr = nr

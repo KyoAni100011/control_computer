@@ -9,6 +9,7 @@ from list import ListApp
 from pic import PicApp
 from process import ListProcess
 from key import Key
+from registry import Registry
 
 class ClientFunction(ClientApp):
     def __init__(self, root):
@@ -44,14 +45,13 @@ class ClientFunction(ClientApp):
         self.nw.write(s + "\n")
         self.nw.flush()
 
-
     def run_process(self):
         if self.client is None:
             messagebox.showwarning("Cảnh báo", "Chưa kết nối đến server")
             return
         s = "PROCESS"
 
-        process_instance = ListProcess(self.nw, self.nr, self.ns)
+        ListProcess(self.nw, self.nr, self.ns)
 
         self.nw.write(s + "\n")
         self.nw.flush()
@@ -72,6 +72,9 @@ class ClientFunction(ClientApp):
             messagebox.showwarning("Cảnh báo", "Chưa kết nối đến server")
             return
         s = "REGISTRY"
+
+        registry_instance = Registry(self.nw, self.nr, self.ns)
+
         self.nw.write(s + "\n")
         self.nw.flush()
         # Implement registry editing command

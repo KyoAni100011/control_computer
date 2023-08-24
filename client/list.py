@@ -10,6 +10,7 @@ class ListApp(ApplicationList):
         self.nw = nw
         self.nr = nr
         self.ns = ns
+        self.thread = None
         
     def button2_Click(self):
         temp = "KILL"
@@ -22,8 +23,11 @@ class ListApp(ApplicationList):
         temp = "XEM"
         self.nw.write(temp + "\n")
         self.nw.flush()
-        # Implement Xem command
-        threading.Thread(target=self.update_list_view).start()
+         # Start the thread
+        self.thread = threading.Thread(target=self.update_list_view)
+        self.thread.start()
+
+        # After the thread has finished, you can continue here
 
     def update_list_view(self):
         def update(index):
