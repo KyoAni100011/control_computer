@@ -377,10 +377,11 @@ class ServerFunc(ServerApp):
                 break
 
     def start_server(self):
-        ip = ("127.0.0.1", 5656)
+        ip = ("0.0.0.0", 5656)
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind(ip)
         self.server.listen(100)
+        print(self.server)
         print("Listening to client ...")
         self.client, _ = self.server.accept()
         self.ns = self.client.makefile('rw')
